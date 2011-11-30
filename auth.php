@@ -109,11 +109,12 @@ class auth_plugin_loginza extends auth_plugin_base {
   }
 
   function loginpage_idp_list($wantsurl) {
+    global $CFG;
     $idps = array();
 
     $idps[] = array(
                 'url'  => new moodle_url('https://loginza.ru/api/widget',
-                                          array('token_url' => 'http://dl.spbstu.ru/login/index.php')),
+                                          array('token_url' => $CFG->wwwroot . '/login/index.php')),
                 'icon' => new pix_icon('sign_in_button_gray', 
                                        get_string('auth_loginzabutton', 'auth_loginza'), 'auth_loginza'),
                 'name' => ''
