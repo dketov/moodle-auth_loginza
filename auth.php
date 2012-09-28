@@ -14,6 +14,7 @@ if (!defined('MOODLE_INTERNAL')) {
 
 require_once($CFG->libdir.'/authlib.php');
 require_once($CFG->libdir.'/filelib.php');
+require_once($CFG->dirroot.'/user/profile/lib.php');
 
 class auth_plugin_loginza extends auth_plugin_base {
 
@@ -34,9 +35,9 @@ class auth_plugin_loginza extends auth_plugin_base {
   }
 
   function loginpage_hook() {
-    global $frm, $SESSION, $CFG;
+    global $frm, $SESSION, $CFG, $DB;
 
-    $token = isset($_POST['token']) ? $_POST['token'] : NULL;
+    $token = (isset($_POST['token']) and $_SERVER['HTTP_ORIGIN'] === 'http://loginza.ru') ? $_POST['token'] : NULL;
 
     if($token) {
       $url = new moodle_url('http://loginza.ru/api/authinfo', array('token' => $token));
@@ -53,23 +54,46 @@ class auth_plugin_loginza extends auth_plugin_base {
       $d = json_decode($r);
 
       if(!$d->error_type) {
-        $frm->username = $this->username($d); // fake username
+        //authenticated !:)
+        $d->token = $token;
+
+        $frm->username = $this->username($d); // fake username 
         $frm->password = $this->password($d); // fake password
-	$SESSION->auth_plugin_loginza = $d;
+	    $SESSION->auth_plugin_loginza = $d;
       }
     }
 
     $CFG->nolastloggedin = true;
   }
 
-  function username($loginzauser)
+  function username($d)
   {
-    return 'loginza-user-' . md5($loginzauser->identity);
+    global $DB;
+    // Arggggh.... http://feedback.loginza.ru/problem/details/id/11618
+    if($user = $DB->get_record('user', array('username' => $this->vkontakteru($d)))) {
+        return $this->vkontakteru($d);
+    }
+
+    return 'loginza-user-' . md5($u->identity);
   }
 
-  function password($loginzauser)
+  function sync_roles($user) // HACK :)
   {
-    return md5($loginzauser->provider);
+       global $SESSION;
+
+       $user->profile_field_loginza = serialize($SESSION->auth_plugin_loginza);
+       profile_save_data($user);
+  }
+
+  function vkontakteru($u)
+  {
+    $identity = str_replace('http://vk.com', 'http://vkontakte.ru', $u->identity);
+    return 'loginza-user-' . md5($identity);
+  }
+
+  function password($u)
+  {
+    return md5($u->token);
   }
 
   function is_internal() {
@@ -89,7 +113,7 @@ class auth_plugin_loginza extends auth_plugin_base {
 
     $d = $SESSION->auth_plugin_loginza;
 
-    return array(
+    $r = array(
       'firstname' => $d->name->first_name,
       'lastname' => $d->name->last_name,
       'country' => $d->address->home->country,
@@ -100,6 +124,14 @@ class auth_plugin_loginza extends auth_plugin_base {
       //'?' => $d->dob, // date of birthday
       //'?' => $d->gender,
     );
+
+    if($d->provider === 'http://openid.yandex.ru/server/') {
+        if(preg_match('|http://openid.yandex.ru/([^/]+)/|', $d->identity, $matches)) {
+            $r['email'] = $matches[1] . '@yandex.ru';
+        }
+    }
+
+    return $r;
 
     unset($SESSION->auth_plugin_loginza);
   }
