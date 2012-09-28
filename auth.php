@@ -66,12 +66,13 @@ class auth_plugin_loginza extends auth_plugin_base {
     $CFG->nolastloggedin = true;
   }
 
-  function username($d)
+  function username($u)
   {
-    global $DB;
+
     // Arggggh.... http://feedback.loginza.ru/problem/details/id/11618
-    if($user = $DB->get_record('user', array('username' => $this->vkontakteru($d)))) {
-        return $this->vkontakteru($d);
+    if($username = $this->vkontakteru($u))
+    {
+        return $username;
     }
 
     return 'loginza-user-' . md5($u->identity);
@@ -87,8 +88,18 @@ class auth_plugin_loginza extends auth_plugin_base {
 
   function vkontakteru($u)
   {
-    $identity = str_replace('http://vk.com', 'http://vkontakte.ru', $u->identity);
-    return 'loginza-user-' . md5($identity);
+    global $DB;
+
+    if(strpos($u->identity, 'http://vk.com') !== FALSE) {
+        $identity = str_replace('http://vk.com', 'http://vkontakte.ru', $u->identity);
+
+        $username = 'loginza-user-' . md5($identity);
+        if($user = $DB->get_record('user', array('username' => $username))) {
+            return $username;
+        }
+    }
+
+    return NULL;
   }
 
   function password($u)
