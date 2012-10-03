@@ -37,7 +37,9 @@ class auth_plugin_loginza extends auth_plugin_base {
   function loginpage_hook() {
     global $frm, $SESSION, $CFG, $DB;
 
-    $token = (isset($_POST['token']) and $_SERVER['HTTP_ORIGIN'] === 'http://loginza.ru') ? $_POST['token'] : NULL;
+    $token = (isset($_POST['token']) and 
+	strpos($_SERVER['HTTP_REFERER'], 'http://loginza.ru') !== FALSE)
+	? $_POST['token'] : NULL;
 
     if($token) {
       $url = new moodle_url('http://loginza.ru/api/authinfo', array('token' => $token));
@@ -59,7 +61,7 @@ class auth_plugin_loginza extends auth_plugin_base {
 
         $frm->username = $this->username($d); // fake username 
         $frm->password = $this->password($d); // fake password
-	    $SESSION->auth_plugin_loginza = $d;
+	$SESSION->auth_plugin_loginza = $d;
       }
     }
 
