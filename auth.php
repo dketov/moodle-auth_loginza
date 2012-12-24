@@ -55,13 +55,13 @@ class auth_plugin_loginza extends auth_plugin_base {
       $r = download_file_content($url->out(false));
       $d = json_decode($r);
 
-      if(!$d->error_type) {
+      if(!empty($d) and !$d->error_type) {
         //authenticated !:)
         $d->token = $token;
 
         $frm->username = $this->username($d); // fake username 
         $frm->password = $this->password($d); // fake password
-	$SESSION->auth_plugin_loginza = $d;
+    	$SESSION->auth_plugin_loginza = $d;
       }
     }
 
@@ -85,6 +85,7 @@ class auth_plugin_loginza extends auth_plugin_base {
        global $SESSION;
 
        $user->profile_field_loginza = serialize($SESSION->auth_plugin_loginza);
+       unset($SESSION->auth_plugin_loginza);
        profile_save_data($user);
   }
 
