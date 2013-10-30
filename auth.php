@@ -53,7 +53,8 @@ class auth_plugin_loginza extends auth_plugin_base {
       }
 
       $r = download_file_content($url->out(false));
-      $d = json_decode($r);
+      if(!empty($r)) 
+      	$d = json_decode($r);
 
       if(!empty($d) and !$d->error_type) {
         //authenticated !:)
@@ -72,8 +73,15 @@ class auth_plugin_loginza extends auth_plugin_base {
   {
 
     // Arggggh.... http://feedback.loginza.ru/problem/details/id/11618
-    if($username = $this->vkontakteru($u))
-    {
+    if($username = $this->vkontakteru($u)) {
+        return $username;
+    }
+    // o_O http://forum.loginza.ru/viewtopic.php?f=12&t=411
+    if($username = $this->googlecom($u)) {
+        return $username;
+    }
+    // o_O http/https facebook
+    if($username = $this->facebookcom($u)) {
         return $username;
     }
 
@@ -85,8 +93,44 @@ class auth_plugin_loginza extends auth_plugin_base {
        global $SESSION;
 
        $user->profile_field_loginza = serialize($SESSION->auth_plugin_loginza);
+
        unset($SESSION->auth_plugin_loginza);
        profile_save_data($user);
+  }
+
+  function facebookcom($u)
+  {
+    global $DB;
+
+    if(strpos($u->identity, 'https://www.facebook.com/') !== FALSE) {
+        $identity = str_replace('https://www.facebook.com/',
+                                'http://www.facebook.com/', $u->identity);
+
+        $username = 'loginza-user-' . md5($identity);
+        if($user = $DB->get_record('user', array('username' => $username))) {
+            return $username;
+        }
+    }
+
+    return NULL;
+  }
+
+  function googlecom($u)
+  {
+    global $DB;
+
+    if(strpos($u->identity, 'https://www.google.com/accounts/o8/id') !== FALSE) {
+
+        $username = 'loginza-user-' . md5($u->identity);
+        if($user = $DB->get_record('user', array('email' => $u->email))) {
+            return $user->username;
+        }
+        if($user = $DB->get_record('user', array('username' => $username))) {
+            return $username;
+        }
+    }
+
+    return NULL;
   }
 
   function vkontakteru($u)
@@ -105,8 +149,7 @@ class auth_plugin_loginza extends auth_plugin_base {
     return NULL;
   }
 
-  function password($u)
-  {
+  function password($u) {
     return md5($u->token);
   }
 
@@ -133,7 +176,7 @@ class auth_plugin_loginza extends auth_plugin_base {
       'country' => $d->address->home->country,
       'lang' => $d->language,
       'email' => $d->email,
-      'url' => $d->web->default,
+      'url' => !empty($d->web) ? $d->web->default : '',
       //'picture' => $d->photo, // FIXME: photo is URL
       //'?' => $d->dob, // date of birthday
       //'?' => $d->gender,
@@ -146,12 +189,16 @@ class auth_plugin_loginza extends auth_plugin_base {
     }
 
     return $r;
-
-    unset($SESSION->auth_plugin_loginza);
   }
 
   function can_change_password() {
-    return false;
+    return true;
+  }
+
+  function change_password_url() {
+    global $CFG;
+
+    return $CFG->wwwroot . '/auth/loginza/change.php';
   }
 
   function loginpage_idp_list($wantsurl) {
